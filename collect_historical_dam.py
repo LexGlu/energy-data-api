@@ -103,6 +103,6 @@ async def fetch_dam_data(start_date, end_date):
 
 if __name__ == '__main__':
     start_date = '01.06.2023'
-    end_date = '09.06.2023'
+    end_date = '10.06.2023'
     asyncio.run(fetch_dam_data(start_date, end_date))
     

@@ -62,7 +62,7 @@ def get_dam():
         df = filter_by_date(df, date)
     
     if df.empty:
-        return jsonify({'error': 'Data is not available yet. Wait until 12:30 - 13:00'}), 400
+        return jsonify({'error': f'Data is not available yet. Wait until 12:30 - 13:00'}), 400
     
     # some logging for debugging purposes
     app.logger.info(f'Format: {output_format}')
@@ -75,5 +75,5 @@ def get_dam():
     
     
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=5555, debug=True)
     

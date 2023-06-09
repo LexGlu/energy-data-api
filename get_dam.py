@@ -4,7 +4,8 @@ import xlrd
 import aiohttp
 import asyncio
 import os
-
+import schedule
+import time
 
 # to retrieve data from oree.com.ua we could have used web scraping that can handle javascript (selenium, puppeteer, etc.)
 # but we can also use the url that is used by javascript to download the file directly (better solution)
@@ -14,6 +15,21 @@ import os
 # xlrd is needed to read the xls file (pandas is raising an error due to the corrupted xls file)
 
 
+# check if the file was already downloaded and processed
+def data_downloaded(date):
+    with open('status_log.txt', 'r') as f:
+        if date in f.read():
+            return True
+        else:
+            return False
+        
+
+def log_message(message):
+    with open('logs.txt', 'a') as f:
+        timestamp = datetime.datetime.now().strftime('%d.%m.%Y %H:%M:%S')
+        f.write(f'{timestamp}: {message}\n')
+        
+    
 async def download_file(url, xls_file):
     # async function to download xls file
     async with aiohttp.ClientSession() as session:
@@ -22,8 +38,8 @@ async def download_file(url, xls_file):
                 with open(xls_file, 'wb') as f:
                     f.write(await resp.read())
             else:
-                print(f'Error: {resp.status}')
-                
+                log_message(f'error while downloading the file. Status code: {resp.status}')
+                    
 
 def delete_file(file):
     # used to delete the file it we don't need it anymore (xls, csv)
@@ -31,16 +47,16 @@ def delete_file(file):
         os.remove(file)
         
 
-# create a function to check if the file exists and has data in it (not only header)
-def check_file(xls_file, date):
+# create a function to check if the data is available (if the file contains more than 1 row, not only header)
+def data_available(xls_file, date):
     workbook = xlrd.open_workbook(xls_file, ignore_workbook_corruption=True)
     sheet = workbook.sheet_by_index(0)
     if sheet.nrows > 1:
-        print(f'Data for {date} is available and ready to be processed')
+        log_message(f'data for {date} is available and ready to be processed')
         delete_file(xls_file)
         return workbook
     else:
-        print(f'Data for {date} is not available yet')
+        log_message(f'data for {date} is not available yet')
         delete_file(xls_file)
         return None        
     
@@ -61,32 +77,51 @@ def process_data(workbook, date, csv_file):
         df.insert(0, 3, date)
         header = ['date', 'hour', 'price', 'volume']
         df.columns = header
-        print('Data was successfully processed')
+        log_message(f'data for {date} was successfully processed')
     except Exception as e1:
-        print(f'Error while processing data: {e1}')
+        log_message(f'error while processing data: {e1}')
     try:
         df.to_csv(csv_file, index=False, header=header)
-        print(f'Processed data for {date} was successfully saved to csv file')
+        log_message(f'processed data for {date} was successfully saved to csv file')
+        # echo date to the 'status.log' to avoid processing the same data twice
+        with open('status_log.txt', 'a') as f:
+            f.write(f'{date}\n')
+        
     except Exception as e2:
-        print(f'Error while saving data to csv file: {e2}')
+        log_message(f'error while saving data to csv file: {e2}')
         delete_file(csv_file)
     
 
 async def fetch_dam_data(date):
     # set url to download the file
     url = f'https://www.oree.com.ua/index.php/PXS/downloadxlsx/{date}/DAM/2'
-    xls_file = f'dam_{date}.xls'
-    csv_file = f'dam_{date}.csv'
+    xls_file = os.path.join(os.path.dirname(__file__), f'dam_{date}.xls')
+    csv_file = os.path.join(os.path.dirname(__file__), f'dam_{date}.csv')
     
     await download_file(url, xls_file)
-    workbook = check_file(xls_file, date)
+    workbook = data_available(xls_file, date)
     if workbook:
         process_data(workbook, date, csv_file)
 
-
-if __name__ == '__main__':
+def job_function():
     # get tomorrow date in format 'dd.mm.yyyy'
     day_ahead_date = (datetime.date.today() + datetime.timedelta(days=1)).strftime('%d.%m.%Y')
-    day_ahead_date = '09.06.2023'
-    asyncio.run(fetch_dam_data(day_ahead_date))
+    # download data if it was not downloaded yet (check status_log.txt)
+    if not data_downloaded(day_ahead_date):
+        asyncio.run(fetch_dam_data(day_ahead_date))
+    else:
+        log_message(f'data for {day_ahead_date} was already downloaded and processed')
+        schedule.cancel_job(job)
+    print('doing stuff')
+
+if __name__ == '__main__':
+
+    job = schedule.every(1).second.do(job_function)
     
+    while True:
+        n = schedule.idle_seconds() 
+        if n is None:
+            break
+        elif n > 0:
+            time.sleep(n)
+        schedule.run_pending()

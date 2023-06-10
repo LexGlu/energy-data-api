@@ -14,15 +14,29 @@ def get_dam():
         return df
     
     def filter_by_date_range(df, start_date, end_date):
+        start_date = str_to_date(start_date)
+        end_date = str_to_date(end_date)
+        # i need to convert date column to datetime to be able to filter by date range
+        df['date'] = pd.to_datetime(df['date'], format='%d.%m.%Y')
+        # filter by date range
         df = df[(df['date'] >= start_date) & (df['date'] <= end_date)]
+        # convert date column back to string
+        df['date'] = df['date'].dt.strftime('%d.%m.%Y')
         return df
     
     def get_tomorrow_date():
         # get tomorrow date in output_format 'dd.mm.yyyy'
         tomorrow_date = (datetime.date.today() + datetime.timedelta(days=1)).strftime('%d.%m.%Y')
-        tomorrow_date = datetime.date.today().strftime('%d.%m.%Y') # for testing
         return tomorrow_date
-        
+    
+    def str_to_date(date):
+        return pd.to_datetime(date, format='%d.%m.%Y')
+    
+    def validate_date(date):
+        try:
+            str_to_date(date)
+        except Exception as e:
+            return jsonify({'error': f'Invalid date format for {date}: {e}\n Indicate date in format dd.mm.yyyy'}), 400
     
     # get parameters from the request
     start_date = request.args.get('start_date')
@@ -45,13 +59,31 @@ def get_dam():
         return jsonify({'error': 'Please provide start_date parameter'}), 400
     
     if start_date and end_date:
-        if start_date > end_date:
+        error = validate_date(start_date)
+        if error:
+            return error
+        error = validate_date(end_date)
+        if error:
+            return error
+    
+        if str_to_date(start_date) > str_to_date(end_date):
             return jsonify({'error': 'start_date must be less than end_date'}), 400
+        
+        if str_to_date(end_date) > str_to_date(get_tomorrow_date()):
+            return jsonify({'error': 'end_date must be not later than tomorrow date'}), 400
         
         df = pd.read_csv(dam_data, header=0)
         df = filter_by_date_range(df, start_date, end_date)
     
     if date:
+        # check if date is in correct format, if not return error
+        error = validate_date(date)
+        if error:
+            return error
+        
+        if str_to_date(date) > str_to_date(get_tomorrow_date()):
+            return jsonify({'error': 'date must be not later than tomorrow date'}), 400
+        
         df = pd.read_csv(dam_data, header=0)
         df = filter_by_date(df, date)
     
@@ -62,7 +94,7 @@ def get_dam():
         df = filter_by_date(df, date)
     
     if df.empty:
-        return jsonify({'error': f'Data is not available yet. Wait until 12:30 - 13:00'}), 400
+        return jsonify({'error': f'Data is not available.'}), 404
     
     # some logging for debugging purposes
     app.logger.info(f'Format: {output_format}')

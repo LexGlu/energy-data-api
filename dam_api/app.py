@@ -103,7 +103,7 @@ def get_dam():
     app.logger.info(f'Date: {date}')
     app.logger.info(f'Number of rows: {df.shape[0]}')
     
-    return df.to_json(orient='records') if output_format == 'json' else df.to_csv(index=False)
+    return df.to_json(orient='records') if output_format.lower() == 'json' else df.to_csv(index=False)
     
     
 if __name__ == '__main__':

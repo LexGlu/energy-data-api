@@ -9,4 +9,9 @@ RUN apt-get update && pip install --upgrade pip && apt-get -y install cron
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
+ADD crontab /etc/cron.d/dam-cron
+RUN chmod 0644 /etc/cron.d/dam-cron
+RUN touch /usr/src/app/cron.log
+RUN crontab /etc/cron.d/dam-cron
+
 COPY . .

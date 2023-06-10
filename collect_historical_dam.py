@@ -71,9 +71,9 @@ def process_data(workbook, date, csv_file):
                 df.to_csv(f, index=False, header=header)
             else:
                 df.to_csv(f, index=False, header=False)
-        print(f'Processed data for {date} was successfully saved to csv file')
+        print(f'Processed data for {date} was successfully saved')
     except Exception as e2:
-        print(f'Error while saving data to csv file: {e2}')
+        print(f'Error while saving data: {e2}')
         
 
 def dates_range(start_date, end_date):
@@ -87,14 +87,12 @@ def dates_range(start_date, end_date):
 
 
 async def fetch_dam_data(start_date, end_date):
-    # set url to download the file
-
     
     for i in dates_range(start_date, end_date):
         print(f'Processing data for {i}')
         url = f'https://www.oree.com.ua/index.php/PXS/downloadxlsx/{i}/DAM/2'
         xls_file = f'dam_{i}.xls'
-        csv_file = f'dam_data.csv'
+        csv_file = f'./dam_api/dam_data.csv'
         await download_file(url, xls_file)
         workbook = check_file(xls_file, i)
         if workbook:
@@ -102,7 +100,7 @@ async def fetch_dam_data(start_date, end_date):
             
 
 if __name__ == '__main__':
-    start_date = '01.06.2023'
-    end_date = '10.06.2023'
+    start_date = '01.05.2023'
+    end_date = '11.06.2023'
     asyncio.run(fetch_dam_data(start_date, end_date))
     

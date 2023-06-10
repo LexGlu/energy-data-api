@@ -1,0 +1,1 @@
+30 9 * * * /usr/local/bin/python /usr/src/app/get_dam.py >> /usr/src/app/cron.log 2>&1

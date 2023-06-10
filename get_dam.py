@@ -17,7 +17,7 @@ import time
 
 # check if the file was already downloaded and processed
 def data_downloaded(date):
-    with open('status_log.txt', 'r') as f:
+    with open(f'{workdir}/status_log.txt', 'r') as f:
         if date in f.read():
             return True
         else:
@@ -25,7 +25,7 @@ def data_downloaded(date):
         
 
 def log_message(message):
-    with open('logs.txt', 'a') as f:
+    with open(f'{workdir}/logs.txt', 'a') as f:
         timestamp = datetime.datetime.now().strftime('%d.%m.%Y %H:%M:%S')
         f.write(f'{timestamp}: {message}\n')
         
@@ -84,7 +84,7 @@ def process_data(workbook, date, csv_file):
         df.to_csv(csv_file, index=False, header=header)
         log_message(f'processed data for {date} was successfully saved to csv file')
         # echo date to the 'status.log' to avoid processing the same data twice
-        with open('status_log.txt', 'a') as f:
+        with open(f'{workdir}/status_log.txt', 'a') as f:
             f.write(f'{date}\n')
         
     except Exception as e2:
@@ -103,25 +103,31 @@ async def fetch_dam_data(date):
     if workbook:
         process_data(workbook, date, csv_file)
 
-def job_function():
+def job_function(date):
     # get tomorrow date in format 'dd.mm.yyyy'
-    day_ahead_date = (datetime.date.today() + datetime.timedelta(days=1)).strftime('%d.%m.%Y')
+
     # download data if it was not downloaded yet (check status_log.txt)
-    if not data_downloaded(day_ahead_date):
-        asyncio.run(fetch_dam_data(day_ahead_date))
+    if not data_downloaded(date):
+        asyncio.run(fetch_dam_data(date))
     else:
-        log_message(f'data for {day_ahead_date} was already downloaded and processed')
+        log_message(f'data for {date} was already downloaded and processed')
         schedule.cancel_job(job)
-    print('doing stuff')
 
 if __name__ == '__main__':
-
-    job = schedule.every(1).second.do(job_function)
+    workdir = os.path.dirname(__file__)
+    day_ahead_date = (datetime.date.today() + datetime.timedelta(days=1)).strftime('%d.%m.%Y')
+    job = schedule.every(1).minute.do(job_function, day_ahead_date) # run the job every minute (can be modified to run every second, hour etc.)
     
-    while True:
-        n = schedule.idle_seconds() 
+    minute_limit = 30 # limit the number of minutes to run the script (can be modified or removed if needed)
+    
+    # script will run until the data is downloaded and processed OR until the time limit is reached (not to run forever if something goes wrong)
+    while minute_limit > 0:
+        n = schedule.idle_seconds() # returns the number of seconds until the next scheduled job
         if n is None:
             break
         elif n > 0:
-            time.sleep(n)
+            time.sleep(n) # sleep until the next job is scheduled to run
+        print(f'Running script for {day_ahead_date} ... {minute_limit} tries left')
         schedule.run_pending()
+    else:
+        log_message(f'Script was stopped due to the time limit. Data for {day_ahead_date} was not downloaded!')

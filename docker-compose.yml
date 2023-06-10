@@ -8,4 +8,6 @@ services:
     ports:
       - "5555:5555"
     command: >
-      sh -c "python3 ./dam_api/app.py"
+      sh -c "service cron start && python3 ./dam_api/app.py"
+    volumes:
+      - .:/usr/src/app

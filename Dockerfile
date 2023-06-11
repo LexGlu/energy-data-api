@@ -5,7 +5,7 @@ ENV PYTHONDONTWRITEBYTECODE 1
 
 WORKDIR /usr/src/app
 
-RUN apt-get update && pip install --upgrade pip && apt-get -y install cron
+RUN apt-get update && pip install --upgrade pip && apt-get -y install cron && apt-get install -y libpq-dev gcc && apt-get clean
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 

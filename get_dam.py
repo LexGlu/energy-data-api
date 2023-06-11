@@ -6,6 +6,7 @@ import asyncio
 import os
 import schedule
 import time
+from database import table_exists, create_table, insert_data
 
 # to retrieve data from oree.com.ua we could have used web scraping that can handle javascript (selenium, puppeteer, etc.)
 # but we can also use the url that is used by javascript to download the file directly (better solution)
@@ -14,6 +15,7 @@ import time
 # if there is no data for the date, the file will contain only header 
 # xlrd is needed to read the xls file (pandas is raising an error due to the corrupted xls file)
 
+workdir = os.path.dirname(__file__)
 
 # check if the file was already downloaded and processed
 def data_downloaded(date):
@@ -42,7 +44,7 @@ async def download_file(url, xls_file):
                     
 
 def delete_file(file):
-    # used to delete the file it we don't need it anymore (xls, csv)
+    # used to delete the file it we don't need it anymore (xls file)
     if os.path.exists(file):
         os.remove(file)
         
@@ -62,7 +64,7 @@ def data_available(xls_file, date):
     
 
 # create a function to process the data and save it to csv file
-def process_data(workbook, date, csv_file):
+def process_data(workbook, date):
     try:
         df = pd.read_excel(workbook, sheet_name=0, header=None, usecols=[0, 1, 2], skiprows=1)
         workbook.release_resources()
@@ -74,38 +76,46 @@ def process_data(workbook, date, csv_file):
         df[0] = df[0].astype(int)
         df[1] = df[1].astype(float)
         df[2] = df[2].astype(float)
+        date = datetime.datetime.strptime(date, '%d.%m.%Y').date()
         df.insert(0, 3, date)
         header = ['date', 'hour', 'price', 'volume']
         df.columns = header
-        log_message(f'data for {date} was successfully processed')
+        # log message with date string to avoid confusion
+        log_message(f'data for {date.strftime("%d.%m.%Y")} was successfully processed')
     except Exception as e1:
         log_message(f'error while processing data: {e1}')
     try:
-        df.to_csv(csv_file, index=False, header=header)
-        log_message(f'processed data for {date} was successfully saved to csv file')
+        exists = table_exists()
+        
+        if not exists:
+            # create table if it does not exist
+            create_table()
+            log_message('table dam_data was successfully created')
+        
+        # insert data to the table
+        for i, row in df.iterrows():
+            insert_data(row['date'], row['hour'], row['price'], row['volume'])
+        log_message(f'data for {date.strftime("%d.%m.%Y")} was successfully saved to the database')
+        
         # echo date to the 'status.log' to avoid processing the same data twice
         with open(f'{workdir}/status_log.txt', 'a') as f:
-            f.write(f'{date}\n')
+            f.write(f'{date.strftime("%d.%m.%Y")}\n')
         
     except Exception as e2:
-        log_message(f'error while saving data to csv file: {e2}')
-        delete_file(csv_file)
+        log_message(f'error while saving data to database: {e2}')
     
 
 async def fetch_dam_data(date):
     # set url to download the file
     url = f'https://www.oree.com.ua/index.php/PXS/downloadxlsx/{date}/DAM/2'
     xls_file = os.path.join(os.path.dirname(__file__), f'dam_{date}.xls')
-    csv_file = os.path.join(os.path.dirname(__file__), f'dam_{date}.csv')
     
     await download_file(url, xls_file)
     workbook = data_available(xls_file, date)
     if workbook:
-        process_data(workbook, date, csv_file)
+        process_data(workbook, date)
 
 def job_function(date):
-    # get tomorrow date in format 'dd.mm.yyyy'
-
     # download data if it was not downloaded yet (check status_log.txt)
     if not data_downloaded(date):
         asyncio.run(fetch_dam_data(date))
@@ -114,9 +124,8 @@ def job_function(date):
         schedule.cancel_job(job)
 
 if __name__ == '__main__':
-    workdir = os.path.dirname(__file__)
-    day_ahead_date = (datetime.date.today() + datetime.timedelta(days=1)).strftime('%d.%m.%Y')
-    job = schedule.every(1).minute.do(job_function, day_ahead_date) # run the job every minute (can be modified to run every second, hour etc.)
+    tomorrow_date = (datetime.date.today() + datetime.timedelta(days=1)).strftime('%d.%m.%Y')
+    job = schedule.every(1).minute.do(job_function, tomorrow_date) # run the job every minute (can be modified to run every second, hour etc.)
     
     minute_limit = 30 # limit the number of minutes to run the script (can be modified or removed if needed)
     
@@ -127,7 +136,8 @@ if __name__ == '__main__':
             break
         elif n > 0:
             time.sleep(n) # sleep until the next job is scheduled to run
-        print(f'Running script for {day_ahead_date} ... {minute_limit} tries left')
+        minute_limit -= 1
+        print(f'Running script for {tomorrow_date} ... {minute_limit} iteration(s) left')
         schedule.run_pending()
     else:
-        log_message(f'Script was stopped due to the time limit. Data for {day_ahead_date} was not downloaded!')
+        log_message(f'Script was stopped due to the time limit. Data for {tomorrow_date} was not downloaded!')

@@ -1,4 +1,0 @@
-10.06.2023 10:45:04: data for 11.06.2023 is available and ready to be processed
-10.06.2023 10:45:04: data for 11.06.2023 was successfully processed
-10.06.2023 10:45:04: processed data for 11.06.2023 was successfully saved to csv file
-10.06.2023 10:45:05: data for 11.06.2023 was already downloaded and processed

@@ -9,10 +9,10 @@ services:
       - .env
     ports:
       - "5555:5555"
-    command: >
-      sh -c "service cron start && python3 ./dam_api/app.py"
     volumes:
       - .:/usr/src/app
+    command: >
+      sh -c "service cron start && python3 ./dam_api/app.py"
     depends_on:
       - db
 
@@ -27,6 +27,7 @@ services:
 
   adminer:
     image: adminer:4.8.1-standalone
+    container_name: adminer
     restart: always
     ports:
       - 8080:8080

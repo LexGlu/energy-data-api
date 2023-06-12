@@ -5,11 +5,10 @@ import os
 
 import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))  # add parent directory to sys.path
-from database import get_data_for_date, get_data_for_date_range
+from database import get_data_for_date, get_data_for_date_range, table_exists, create_table
 
 
 app = Flask(__name__)
-dam_data = os.path.join(os.path.dirname(__file__), 'dam_data.csv')
 
 
 @app.route('/dam_data', methods=['GET'])
@@ -28,6 +27,10 @@ def get_dam():
             str_to_date(date)
         except Exception as e:
             return jsonify({'error': f'Invalid date format for {date}: {e}\n Indicate date in format dd.mm.yyyy'}), 400
+    
+    # check if table exists, if not create it
+    if not table_exists():
+        create_table()
     
     # get parameters from the request
     start_date = request.args.get('start_date')
@@ -85,15 +88,14 @@ def get_dam():
         df = get_data_for_date(date)
     
     if df.empty:
-        return jsonify({'error': f'Data is not available.'}), 404
-    
-    # some logging for debugging purposes
-    app.logger.info(f'Format: {output_format}')
-    app.logger.info(f'Start date: {start_date}')
-    app.logger.info(f'End date: {end_date}')
-    app.logger.info(f'Date: {date}')
-    app.logger.info(f'Number of rows: {df.shape[0]}')
-    
+        if date:
+            try:
+                date_str = date.strftime('%d.%m.%Y')
+            except Exception as e:
+                date_str = date
+        else:
+            date_str = f'{start_date} - {end_date}'
+        return jsonify({'error': f'No data available for {date_str}'}), 404
     
     # change date format to string 'dd.mm.yyyy' for json and csv output (to be readable and consistent with input format)
     df['date'] = df['date'].apply(lambda x: x.strftime('%d.%m.%Y'))

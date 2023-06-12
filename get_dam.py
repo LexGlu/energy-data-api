@@ -7,6 +7,7 @@ import os
 import schedule
 import time
 from database import table_exists, create_table, insert_data
+from utils import log_message
 
 # to retrieve data from oree.com.ua we could have used web scraping that can handle javascript (selenium, puppeteer, etc.)
 # but we can also use the url that is used by javascript to download the file directly (better solution)
@@ -24,12 +25,6 @@ def data_downloaded(date):
             return True
         else:
             return False
-        
-
-def log_message(message):
-    with open(f'{workdir}/logs.txt', 'a') as f:
-        timestamp = datetime.datetime.now().strftime('%d.%m.%Y %H:%M:%S')
-        f.write(f'{timestamp}: {message}\n')
         
     
 async def download_file(url, xls_file):
@@ -85,12 +80,10 @@ def process_data(workbook, date):
     except Exception as e1:
         log_message(f'error while processing data: {e1}')
     try:
-        exists = table_exists()
         
-        if not exists:
+        if not table_exists():
             # create table if it does not exist
             create_table()
-            log_message('table dam_data was successfully created')
         
         # insert data to the table
         for i, row in df.iterrows():
@@ -125,7 +118,7 @@ def job_function(date):
 
 if __name__ == '__main__':
     tomorrow_date = (datetime.date.today() + datetime.timedelta(days=1)).strftime('%d.%m.%Y')
-    job = schedule.every(1).minute.do(job_function, tomorrow_date) # run the job every minute (can be modified to run every second, hour etc.)
+    job = schedule.every(1).second.do(job_function, tomorrow_date) # run the job every minute (can be modified to run every second, hour etc.)
     
     minute_limit = 30 # limit the number of minutes to run the script (can be modified or removed if needed)
     

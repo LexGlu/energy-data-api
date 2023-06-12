@@ -1,14 +1,10 @@
 import psycopg2
 import pandas as pd
 import os
+from utils import log_message
 
 def create_connection():
     connection = psycopg2.connect(
-        # host='db',
-        # port='5432',
-        # user='postgres',
-        # password='password',
-        # database='postgres'
         host=os.environ.get('POSTGRES_HOST'),
         port=os.environ.get('POSTGRES_PORT'),
         user=os.environ.get('POSTGRES_USER'),
@@ -22,27 +18,40 @@ def create_table():
     cursor = connection.cursor()
     query = """
         CREATE TABLE IF NOT EXISTS dam_data (
+            id SERIAL PRIMARY KEY,
             date DATE,
             hour INTEGER,
             price NUMERIC,
             volume NUMERIC
         )
     """
-    cursor.execute(query)
-    connection.commit()
-    cursor.close()
-    connection.close()
+    try:
+        cursor.execute(query)
+        connection.commit()
+        cursor.close()
+        log_message('table dam_data was successfully created')
+    except Exception as e:
+        log_message(f'error while creating table: {e}')
+        raise Exception(f'Error while creating table: {e}')
+    finally:
+        connection.close()        
+        
     
 def insert_data(date, hour, price, volume):
     connection = create_connection()
-    cursor = connection.cursor()
-    query = """
-        INSERT INTO dam_data (date, hour, price, volume) VALUES (%s, %s, %s, %s)
-    """
-    cursor.execute(query, (date, hour, price, volume))
-    connection.commit()
-    cursor.close()
-    connection.close()
+    try:
+        cursor = connection.cursor()
+        query = """
+            INSERT INTO dam_data (date, hour, price, volume) VALUES (%s, %s, %s, %s)
+        """
+        cursor.execute(query, (date, hour, price, volume))
+        connection.commit()
+        cursor.close()
+    except Exception as e:
+        log_message(f'error while inserting data: {e}')
+        raise Exception(f'Error while inserting data: {e}')
+    finally:
+        connection.close()
     
 def get_data_for_date(date):
     try:
@@ -53,7 +62,7 @@ def get_data_for_date(date):
     connection = create_connection()
     cursor = connection.cursor()
     query = """
-        SELECT * FROM dam_data WHERE date = %s
+        SELECT date, hour, price, volume FROM dam_data WHERE date = %s
     """
     cursor.execute(query, (date,))
     data = cursor.fetchall()
@@ -71,7 +80,7 @@ def get_data_for_date_range(start_date, end_date):
     connection = create_connection()
     cursor = connection.cursor()
     query = """
-        SELECT * FROM dam_data WHERE date >= %s AND date <= %s
+        SELECT date, hour, price, volume FROM dam_data WHERE date >= %s AND date <= %s
     """
     cursor.execute(query, (start_date, end_date))
     data = cursor.fetchall()

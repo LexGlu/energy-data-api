@@ -47,11 +47,17 @@ docker exec -it flask_api python get_dam_range.py
 
 
 ## Solution description
-1. Container 'flask_api' will run python [script](./get_dam.py) to fetch market closing data from https://www.oree.com.ua every day at 12:30. This script will make requests every 1 minute until it gets the data or until some defined time limit. The interval for making requests (1 minute by default) or time limit (30 minutes by default) can be changed in the [script](./get_dam.py) file (line 121 and 123).
-2. [Script](./get_dam.py) will save the data to the database. The database is running in the container 'postgres_db'.
-3. Database schema for storing the data is the following:
+
+1. To retrieve data from oree.com.ua we could have used web scraping that can handle javascript (selenium, puppeteer, etc.)
+But we can also use the url that is used by javascript to download the file directly (better solution).
+The url is https://www.oree.com.ua/index.php/PXS/downloadxlsx/09.06.2023/DAM/2
+To get the desired file we need to change the date parameter in the url {09.06.2023} to any date (historical data is also available) if there is no data for the date, the file will contain only header.
+
+2. Container 'flask_api' will run python [script](./get_dam.py) to fetch market closing data from https://www.oree.com.ua every day at 12:30. This script will make requests every 1 minute until it gets the data or until some defined time limit. The interval for making requests (1 minute by default) or time limit (30 minutes by default) can be changed in the [script](./get_dam.py) file (line 121 and 123).
+3. [Script](./get_dam.py) will save the data to the database. The database is running in the container 'postgres_db'.
+4. Database schema for storing the data is the following:
 - table 'dam_data' with columns: 'id' (primary key), 'date' (date), 'hour' (integer), 'price' (numeric), 'volume' (numeric).
-4. Container 'flask_api' will run Flask application that will provide API endpoint to get the data from the database. The endpoint is '/dam_data' and it accepts GET requests. The endpoint accepts the following query parameters:
+5. Container 'flask_api' will run Flask application that will provide API endpoint to get the data from the database. The endpoint is '/dam_data' and it accepts GET requests. The endpoint accepts the following query parameters:
 - 'date' - date in format 'dd.mm.yyyy' (e.g. '13.06.2023'). If the date is not specified, the data for tomorrow date will be returned.
 - 'start_date' and 'end_date' - dates in format 'dd.mm.yyyy' (e.g. '13.06.2023'). If both 'start_date' and 'end_date' are specified, the data for the specified period will be returned.
 - 'format' - format of the response. The following formats are supported: 'json' (default), and 'csv'.

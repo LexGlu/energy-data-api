@@ -118,7 +118,7 @@ def job_function(date):
 
 if __name__ == '__main__':
     tomorrow_date = (datetime.date.today() + datetime.timedelta(days=1)).strftime('%d.%m.%Y')
-    job = schedule.every(1).second.do(job_function, tomorrow_date) # run the job every minute (can be modified to run every second, hour etc.)
+    job = schedule.every(1).minute.do(job_function, tomorrow_date) # run the job every minute (can be modified to run every second, hour etc.)
     
     minute_limit = 30 # limit the number of minutes to run the script (can be modified or removed if needed)
     
